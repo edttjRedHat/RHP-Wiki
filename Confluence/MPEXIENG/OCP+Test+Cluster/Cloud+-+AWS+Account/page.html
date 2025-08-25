@@ -1,0 +1,679 @@
+<p>OCP Test Cluster on AWS Cloud.</p><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="45d93f63-2780-48ad-afd4-01048ce96f8e"><ac:parameter ac:name="borderWidth">0</ac:parameter><ac:parameter ac:name="borderStyle">none</ac:parameter><ac:rich-text-body><p><ac:structured-macro ac:name="toc" ac:schema-version="1" ac:macro-id="67e107a6-e747-4181-b931-e299202c302b"><ac:parameter ac:name="outline">true</ac:parameter></ac:structured-macro><ac:structured-macro ac:name="multiexcerpt-include" ac:schema-version="1" ac:macro-id="7c6da25c-b7f8-4b60-9944-81984c186f61"><ac:parameter ac:name="MultiExcerptName">Include--Global</ac:parameter><ac:parameter ac:name="DisableCaching">true</ac:parameter><ac:parameter ac:name="PageWithExcerpt"><ac:link><ri:page ri:content-title="MPEX Integrity Engineering" /></ac:link></ac:parameter><ac:parameter ac:name="shouldDisplayInlineCommentsInIncludes">false</ac:parameter></ac:structured-macro></p></ac:rich-text-body></ac:structured-macro><h1>Infrastructure</h1><p>The <a href="https://us-east-1.console.aws.amazon.com/ec2/home?region=us-east-1#Instances:">VMs</a> are hosted in <a href="https://rover.redhat.com/groups/group/it-cloud-aws-624914081466-readonlywithinstanceconnect">AWS IENG-001 Account</a>.</p><h2>Credentials</h2><p>An <code>IAM User</code> (<code>u-ieng--ocp-installer</code> ) with <code>CLI Access Key</code> is needed. It is best practice to assign this user as member of An <code>IAM User Group</code> (<code>g-ieng--ocp-installer</code>) that has the required permission (<code>IAMFullAccess</code> and <code>PowerUserAccess</code>) to perform OCP Installation.</p><ac:structured-macro ac:name="warning" ac:schema-version="1" ac:macro-id="b9b9be0b-fd51-4dca-9bc3-7538dc6f9855"><ac:rich-text-body><p>The <code>IAM User</code>'s Access Key is a <span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><strong>LONG LIVE</strong></span> and <span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><strong>PERMANENT</strong></span> API Key and need to be protected and recycled periodically.</p><p>Store it in a centralized vault where an Authorized Principal can securely retrieve it during OCP Installation.</p></ac:rich-text-body></ac:structured-macro><h2>Quotas</h2><p>The AWS Account's quotas need to be set to be able to host multiple OCP Clusters (assuming all having the same &quot;default-size&quot;) at the same time:</p><ul><li>EC2/EC2-VPC Elastic IPs (EIP): <code>5 x numOfClusters</code></li><li>VPC/VPCs per Region: <code>numOfClusters</code></li><li data-uuid="647bb744-5be8-4369-8105-bb56e211c97e">VPC/Subnets per VPC: <code>10 x numOfClusters</code></li><li>VPC/NAT gateways per Availability Zone (AZ): <code>RoundUp(numOfClusters / int(numOfAZperRegion / 5)</code></li><li data-uuid="5e6cdb87-733b-4338-b3b4-b4acb59310a2">VPC/Internet gateways per Region: <code>1 x numOfClusters</code></li><li data-uuid="85877603-c472-4f9b-b3a5-5d9fe11f5abb">VPC/VPC security groups per Region: <code>6 x numOfClusters</code></li><li data-uuid="8562c36d-32d2-4a1c-8073-4a8c37d13deb">VPC/Network interfaces per Region (ENI): <code>3 x numOfCluster</code>s</li><li data-uuid="67dc2d09-68e6-43ef-b819-ca54864c1bc4">ELB/Classic Load Balancers per Region: <code>1 x numOfClusters</code></li><li data-uuid="12dc389c-cfcd-48cb-9e65-4933dd2a48bc">ELB/Network Load Balancers per Region: <code>2 x numOfClusters</code></li><li data-uuid="f01975d7-77f9-462a-8011-ff52e9422d66">S3/General purpose buckets: <code>10 x numOfClusters</code></li></ul><ac:structured-macro ac:name="info" ac:schema-version="1" ac:macro-id="35e4ca96-757d-434a-9092-e753a2bac498"><ac:rich-text-body><p>A default OCP Cluster will need:</p><ol><li>EC2 Intances: 6 (3 Control Plane Nodes + 3 Worker Nodes; 4 vCPU, 16 GiB RAM) +1 (Bootstrap for installation).</li><li data-uuid="000d759e-bdcb-4f56-8ced-ad58547454aa">EIPs: 5</li><li data-uuid="305c4a3c-5f48-4a72-998d-4e495f4a3353">VPCs: 1</li><li data-uuid="d05d06de-bd5d-4030-a325-77b9d640fe0a">Sub-Nets: 10 (2 per AZ: 1 public, 1 private)</li><li data-uuid="e3d70f55-3259-402c-a918-2f12b0f2f6b4">NAT Gateways: 5 (1 per private sub-net per AZ; each need an Elastic IP)</li><li data-uuid="5d890bc2-bc13-4b41-b799-354f7e8394f3">Internet Gateways: 1</li><li data-uuid="87999892-8dde-4ac6-88d6-90278a395250">Security Groups: 1 (Default) + 2 (Node + Control Plane) + 3 (Node LB + API Server LB + K8s ELB)</li><li data-uuid="7dd16a9b-cee2-4a39-8fba-90446726ac76">ELBs: 1 (Classic LBs) + 2 (Network LBs)</li><li data-uuid="fc8ac545-d0f9-4d75-8637-eac3b47b348b">ENIs: 6 (EC2 Instances; 1 Control Plane Node + 1 Worker Node) + 5 (NAT Gateways; 1/AZ) + 3 (Classic LBs; Only on AZ with EC2 Instances) + 10 (Network LBs; 2 /AZ)</li><li data-uuid="2ec34e91-b7fc-419f-a99d-dadd6cb4f207">S3 Buckets: 10</li></ol><p>The OCP Cluster used 5 AZs and spread the Nodes among them. With 3 Control Plane Nodes + 3 Worker Nodes, it means 3 AZs will have 2 Nodes (1 Control Plane + 1 Worker) while the remaining 2 will not have any Nodes.</p></ac:rich-text-body></ac:structured-macro><h2>Regions</h2><p>Recommendation on used regions [&lt;<code>awsRegionName</code>&gt; (<code>EC2/EC2-VPC EIPs</code>, <code>VPC/VPCs per Region</code>, <code>VPC/NAT gateways per Availability Zone</code>)].</p><ul><li data-uuid="e7ee2e2d-748a-4431-bdea-913c029362e9">Manual test: <code>us-east-1</code> (50, 10, 10)</li><li data-uuid="42a39136-4196-43b4-a72e-c5159c4531cf">Automation using CI-Operator test: u<code>s-west-2</code> (50, 10, 10)</li></ul><h1>Tooling</h1><h2>AWS CLI</h2><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="8766f9f0-3ffc-478e-9f09-3c28da00f61a"><ac:parameter ac:name="borderColor">black</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:parameter ac:name="title">AWS CLI Installation</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name="html" ac:schema-version="1" ac:macro-id="deb92014-3d1a-492c-a481-daec053a0e93"><ac:plain-text-body><![CDATA[<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+(
+    dlFile=/tmpfs/aws-cli--$$
+    wget -qO "${dlFile}.zip" 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip'
+    unzip "${dlFile}" -d "${dlFile}/"
+    "${dlFile}/aws/install"
+    rm -rf "${dlFile}"{.zip,/}
+    dnf install -y https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm
+
+    dnf install -y gcc krb5-devel krb5-workstation openldap-devel python-devel &amp;&amp;
+        GIT_SSL_NO_VERIFY=true pip3 install 'git+https://gitlab.cee.redhat.com/compute/aws-automation.git' &amp;&amp;
+        dnf remove -y gcc krb5-devel openldap-devel python-devel
+)
+</pre>
+    </div>
+</div>]]></ac:plain-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro><h1>OCP Installation</h1><p>Follow this instruction to install OCP.</p><ol><li>Download the appropriate installer.<br /><ac:structured-macro ac:name="note" ac:schema-version="1" ac:macro-id="c7f6c506-f41b-4e66-be77-55bdd6aa2f8f"><ac:rich-text-body><p>When downloading the OCP Installer, do not confuse between the CPU Architecture of OCP Cluster Target System and CPU Architecture of Host System where the installer binary itself is executed.</p><p>For ex. the screenshot shown in the <ac:link ac:anchor="Step2--Screenshot"><ac:plain-text-link-body><![CDATA[Step 2]]></ac:plain-text-link-body></ac:link> below, The <code>x86_64</code> refers to the Host System where the installer binary is to be executed from. However, since that page is from <a href="https://console.redhat.com/openshift/install/aws/arm/installer-provisioned">ARM</a> OCP Installer Download page, it will install OCP Cluster on ARM machines.</p></ac:rich-text-body></ac:structured-macro><ul><li>On <a href="https://console.redhat.com/openshift/install/aws/arm/installer-provisioned">ARM</a> (strongly encourage to use ARM for during Testing &amp; Development phase).</li><li>On <a href="https://console.redhat.com/openshift/install/aws/installer-provisioned">x86</a>.</li></ul></li><li>Copy or download the Pull Secret.<br /><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="a40f7cc2-6df5-469d-8dac-1293b43ae554"><ac:parameter ac:name="borderColor">black</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:parameter ac:name="title">Pull Secret</ac:parameter><ac:rich-text-body><p><ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:macro-id="0e258ff7-9fab-45b9-ba3c-210ec32eea96"><ac:parameter ac:name="">Step2--Screenshot</ac:parameter></ac:structured-macro></p><p><ac:image><ri:attachment ri:filename="PullSecret--Information.png" /></ac:image></p></ac:rich-text-body></ac:structured-macro></li><li>Extract the installer from the downloaded archive.<br /><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="977e6d8e-7115-4d56-a816-cf8d605081d2"><ac:parameter ac:name="borderColor">black</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:parameter ac:name="title">Get Installler Binary</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name="html" ac:schema-version="1" ac:macro-id="a8a270cc-464a-40d8-abc8-bdfa448b832d"><ac:plain-text-body><![CDATA[<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+tar xf <span style="color:red;font-weight:bold;">...downloadedIntallerArchive...</span>
+</pre>
+    </div>
+</div>]]></ac:plain-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro></li><li>Perform the installation.<br /><ac:structured-macro ac:name="note" ac:schema-version="1" ac:macro-id="a5ceaf0e-b5ad-4fcb-9d21-0e5f146f2e92"><ac:rich-text-body><ul><li>Make sure your BitWarden Session is <ac:link ac:anchor="BitWarden--Env--ProxyRequirement"><ri:page ri:content-title="OCP Test Cluster" /><ac:plain-text-link-body><![CDATA[configured]]></ac:plain-text-link-body></ac:link> properly!!!</li><li>Please use <ac:link ac:anchor="SSHKey"><ri:page ri:content-title="OCP Test Cluster" /><ac:plain-text-link-body><![CDATA[common or group SSH Key]]></ac:plain-text-link-body></ac:link> instead of your own private SSH Key, so other can access the Cluster Nodes easily.</li><li>Please select the appropriate DNS Sub-Domain. For ad-hoc Cluster during Test &amp; Development and/or troubleshooting, strongly suggested to use <span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><code>test.lp.devcluster.openshift.com</code></span>.</li><li>Please name your cluster accordingly (<span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><strong>Max. 20 characters</strong></span>). Suggested format: <span style="color:var(--ds-text,#333333);"><code>${corpLDAPid}–-${purposeOfCluster}</code></span> (ex: <span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><code>etirtara--chaos-poc</code></span>).</li></ul></ac:rich-text-body></ac:structured-macro><ac:structured-macro ac:name="warning" ac:schema-version="1" ac:macro-id="51f153ce-27df-4ed1-a891-d260ca15bf98"><ac:rich-text-body><p>When interactive session is entered (<code>__SHELL=1</code> or <code>_OCP__INSTLR_ACTION=i</code>), please <span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><strong>DO NOT</strong></span> forget to <span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><strong>EXIT</strong></span> when you are done. We need to make sure the unencrypted confidential information remains contained in an ephemeral environment.</p></ac:rich-text-body></ac:structured-macro><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="70302776-c8eb-494f-841c-342f92e727f4"><ac:parameter ac:name="borderColor">black</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:parameter ac:name="title">Installing OCP</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name="html" ac:schema-version="1" ac:macro-id="2529ebbe-1791-401d-b129-2cb635f0acb9"><ac:plain-text-body><![CDATA[<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+__SHELL=0 \
+    _OCP__INSTLR_ACTION=1 \
+    _OCP__CLUSTER_DIR='<span style="color:red;font-weight:bold;">...ocpClusterDir...</span>' \
+    _OCP__INSTLR_LOG_LEVEL=info \
+    _OCP__INSTLR_DIR='<span style="color:red;font-weight:bold;">...ocpInstallerDir...</span>' \
+    _BW__NOTE_NAME='note.AWS--IAMuser--OCPinstaller' \
+    BW_SESSION="$((bw status | grep -q '"status":"unlocked"') &amp;&amp; echo "${BW_SESSION}" || bw unlock --raw || bw login --raw)" \
+    AWS_REGION=us-east-1 \
+    bash -ec "$(cat - 0&lt;&lt;'cmdEOF'
+        [ -n "${BW_SESSION}" ] &amp;&amp; bw sync || {
+            echo 'You do NOT have an active and sync:ed BitWarden Session!!!'
+            exit 1
+        }
+        ((__SHELL)) &amp;&amp; exec bash    # <span style="color:red;font-weight:bold;">Do NOT forget to exit the interactive session!!!</span>
+
+        eval "$(
+            bw get notes "${_BW__NOTE_NAME}" || {
+                echo "You may NOT have access to BitWarden Note \`${_BW__NOTE_NAME}\`." 1&gt;&amp;2
+                echo false
+            }
+        )"
+        aws configure list
+        aws sts get-caller-identity
+
+        function openshift-install () {
+            \command "${_OCP__INSTLR_DIR}/openshift-install" \
+                --dir "${_OCP__CLUSTER_DIR}/" \
+                ${_OCP__INSTLR_LOG_LEVEL:+--log-level "${_OCP__INSTLR_LOG_LEVEL}"} \
+                "$@"
+        }
+
+        case ${_OCP__INSTLR_ACTION} in
+          (-2|0|2)  openshift-install destroy bootstrap || true;;&ampl
+          (-2|-1|2) openshift-install destroy cluster || exit 1;;&ampl
+          (-2|2)    rm -rf "${_OCP__CLUSTER_DIR}/";;&amp;
+          (1|2)     openshift-install create cluster;;
+          (i)
+            # Interactive Session.
+            _OCP__INSTLR_DIR="$(CDPATH= \command cd -L "${_OCP__INSTLR_DIR}"; \command pwd)"
+            export -f openshift-install
+            mkdir -p "${_OCP__CLUSTER_DIR}"; cd "${_OCP__CLUSTER_DIR}/"
+            exec bash   # <span style="color:red;font-weight:bold;">Do NOT forget to exit the interactive session!!!</span>
+            ;;
+        esac
+cmdEOF
+    )"
+
+</pre>
+    </div>
+</div>
+<hr style="border:1px solid black;"/>
+<div style="font-family:monospace;font-size:large;max-height:20em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;color:black;background-color:cyan;">
+? Master password: <span style="color:red;font-weight:bold;">[hidden]</span>
+Syncing complete.
+      Name                    Value             Type    Location
+      ----                    -----             ----    --------
+   profile                &lt;not set&gt;             None    None
+access_key     ****************H6YB              env
+secret_key     ****************r+ME              env
+    region                us-east-1              env    ['AWS_REGION', 'AWS_DEFAULT_REGION']
+{
+    "UserId": "AIDAZC76IE25KXVQUCR6W",
+    "Account": "624914081466",
+    "Arn": "arn:aws:iam::624914081466:user/u-ieng--ocp-installer"
+}
+? SSH Public Key <span style="color:red;font-weight:bold;">/home/etirtara/.ssh/openshift-qe.pub</span>
+? Platform <span style="color:red;font-weight:bold;">aws</span>
+INFO Credentials loaded from default AWS environment variables
+? Region <span style="color:red;font-weight:bold;">us-east-1</span>
+? Base Domain <span style="color:red;font-weight:bold;">test.lp.devcluster.openshift.com</span>
+? Cluster Name <span style="color:red;font-weight:bold;">etirtara--chaos-poc</span>
+? Pull Secret [? for help] <span style="color:red;font-weight:bold;">****************************************************************************************************************************************************************************************************************</span>
+INFO Successfully populated MCS CA cert information: root-ca 2035-07-08T22:22:21Z 2025-07-10T22:22:21Z
+INFO Successfully populated MCS TLS cert information: root-ca 2035-07-08T22:22:21Z 2025-07-10T22:22:21Z
+WARNING Following quotas ec2/L-0263D0A3 (us-east-1) are available but will be completely used pretty soon.
+INFO Adding clusters...
+INFO Creating infrastructure resources...
+INFO Reconciling IAM roles for control-plane and compute nodes
+INFO Creating IAM role for master
+INFO Creating IAM role for worker
+INFO Started local control plane with envtest
+INFO Stored kubeconfig for envtest in: /wrk--edttjRedHat.RHP-k8s--dev/local/ocp-clusters/rhp/aws/.clusterapi_output/envtest.kubeconfig
+INFO Running process: Cluster API with args [-v=2 --diagnostics-address=0 --health-addr=127.0.0.1:37217 --webhook-port=41651 --webhook-cert-dir=/tmp/envtest-serving-certs-1723178587 --kubeconfig=/wrk--edttjRedHat.RHP-k8s--dev/local/ocp-clusters/rhp/aws/.clusterapi_output/envtest.kubeconfig]
+INFO Running process: aws infrastructure provider with args [-v=4 --diagnostics-address=0 --health-addr=127.0.0.1:46093 --webhook-port=42053 --webhook-cert-dir=/tmp/envtest-serving-certs-3672214960 --feature-gates=BootstrapFormatIgnition=true,ExternalResourceGC=true,TagUnmanagedNetworkResources=false,EKS=false --kubeconfig=/wrk--edttjRedHat.RHP-k8s--dev/local/ocp-clusters/rhp/aws/.clusterapi_output/envtest.kubeconfig]
+INFO Creating infra manifests...
+INFO Created manifest *v1.Namespace, namespace= name=openshift-cluster-api-guests
+INFO Created manifest *v1beta2.AWSClusterControllerIdentity, namespace= name=default
+INFO Created manifest *v1beta1.Cluster, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl
+INFO Created manifest *v1beta2.AWSCluster, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl
+INFO Done creating infra manifests
+INFO Creating kubeconfig entry for capi cluster chaos-lp-etirtara-jfthl
+INFO Waiting up to 15m0s (until 10:37PM UTC) for network infrastructure to become ready...
+INFO Network infrastructure is ready
+INFO Creating Route53 records for control plane load balancer
+INFO Created private Hosted Zone
+INFO Created manifest *v1beta2.AWSMachine, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-bootstrap
+INFO Created manifest *v1beta2.AWSMachine, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-master-0
+INFO Created manifest *v1beta2.AWSMachine, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-master-1
+INFO Created manifest *v1beta2.AWSMachine, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-master-2
+INFO Created manifest *v1beta1.Machine, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-bootstrap
+INFO Created manifest *v1beta1.Machine, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-master-0
+INFO Created manifest *v1beta1.Machine, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-master-1
+INFO Created manifest *v1beta1.Machine, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-master-2
+INFO Created manifest *v1.Secret, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-bootstrap
+INFO Created manifest *v1.Secret, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-master
+INFO Created manifest *v1.Secret, namespace=openshift-cluster-api-guests name=chaos-lp-etirtara-jfthl-worker
+INFO Waiting up to 15m0s (until 10:45PM UTC) for machines [chaos-lp-etirtara-jfthl-bootstrap chaos-lp-etirtara-jfthl-master-0 chaos-lp-etirtara-jfthl-master-1 chaos-lp-etirtara-jfthl-master-2] to provision...
+INFO Control-plane machines are ready
+INFO Cluster API resources have been created. Waiting for cluster to become ready...
+INFO Waiting up to 20m0s (until 10:50PM UTC) for the Kubernetes API at https://api.chaos-lp--etirtara.chaos.lp.devcluster.openshift.com:6443...
+INFO API v1.32.5 up
+INFO Waiting up to 45m0s (until 11:29PM UTC) for bootstrapping to complete...
+INFO Waiting for the bootstrap etcd member to be removed...
+INFO Bootstrap etcd member has been removed
+INFO Destroying the bootstrap resources...
+INFO Waiting up to 5m0s for bootstrap machine deletion openshift-cluster-api-guests/chaos-lp-etirtara-jfthl-bootstrap...
+INFO Shutting down local Cluster API controllers...
+INFO Stopped controller: Cluster API
+WARNING process cluster-api-provider-aws exited with error: signal: killed
+INFO Stopped controller: aws infrastructure provider
+INFO Shutting down local Cluster API control plane...
+INFO Local Cluster API system has completed operations
+INFO Finished destroying bootstrap resources
+INFO Waiting up to 40m0s (until 11:36PM UTC) for the cluster at https://api.chaos-lp--etirtara.chaos.lp.devcluster.openshift.com:6443 to initialize...
+INFO Waiting up to 30m0s (until 11:34PM UTC) to ensure each cluster operator has finished progressing...
+INFO All cluster operators have completed progressing
+INFO Checking to see if there is a route at openshift-console/console...
+INFO Install complete!
+INFO To access the cluster as the system:admin user when using 'oc', run
+INFO     export KUBECONFIG=/wrk--edttjRedHat.RHP-k8s--dev/local/ocp-clusters/rhp/aws/auth/kubeconfig
+INFO Access the OpenShift web-console here: https://console-openshift-console.apps.chaos-lp--etirtara.chaos.lp.devcluster.openshift.com
+INFO Login to the console with user: "kubeadmin", and password: "*****-*****-*****-*****"
+INFO Time elapsed: 46m53s
+
+</pre>
+    </div>
+</div>]]></ac:plain-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro><ac:structured-macro ac:name="note" ac:schema-version="1" ac:macro-id="42ce5e85-39a2-4e26-8424-5cc42a48389d"><ac:rich-text-body><p>Keep the installation directory so you can easily destroy the OCP Cluster when no longer needed, by re-executing the above code with <code>_OCP__INSTLR_ACTION</code> is set to <code>-1</code> or <code>-2</code> .</p></ac:rich-text-body></ac:structured-macro></li><li>Download the CLI Tools directly from the cluster.<br /><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="252920c3-07c0-485e-baf7-57b5d1c2d89a"><ac:parameter ac:name="borderColor">black</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:parameter ac:name="title">Download CLI Tools</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name="html" ac:schema-version="1" ac:macro-id="dd619c77-a884-4400-942b-320678efd8de"><ac:plain-text-body><![CDATA[<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+# Warning!!! This code snippet requires `yq`.
+KUBECONFIG='<span style="color:red;font-weight:bold;">...pathToKubeConfigFile...</span>' \
+    binDir='./' \
+    bash -c "$(cat - 0&lt;&lt;'cmdEOF'
+        apiURL="$(yq -e '.clusters[].cluster.server' "${KUBECONFIG}" | sed -n '1p')"
+        baseURL="$(echo "${apiURL}" | sed -E 's|^[^:]+://api\.([^:]+)(:[[:digit:]]+)?$|\1|')"
+        schemaURL="$(echo "${apiURL}" | sed -E 's|:.*$||')"
+        toolArr=(
+            "(  ''  'oc'                '${schemaURL}://downloads-openshift-console.apps.${baseURL}/amd64/linux/oc.tar'                                 )"
+            "(  z   'tkn tkn-pac opc'   '${schemaURL}://tkn-cli-serve-openshift-pipelines.apps.${baseURL}/tkn/tkn-linux-amd64.tar.gz'                   )"
+            "(  z   'virtctl'           '${schemaURL}://hyperconverged-cluster-cli-download-openshift-cnv.apps.${baseURL}/amd64/linux/virtctl.tar.gz'   )"
+        )
+        typeset -p toolArr
+        for e in "${toolArr[@]}"; do
+            eval "arr=${e}"
+            eval "e=(${arr[1]})"
+            arr+=("${e[0]}")
+            curl -kfsSLI "${arr[2]}" 1&gt; /dev/null 2>&1 &&
+            curl -kfssL "${arr[2]}" | tar "${arr[0]}vx" "${e[@]}"
+            case ${arr[3]} in
+              (oc)  [ -e "${binDir}/oc" ] && [ ! -e "${binDir}/kubectl" ] &amp;&amp; ln -s oc "${binDir}/kubectl";;
+            esac
+        done
+cmdEOF
+    )"
+
+</pre>
+    </div>
+</div>]]></ac:plain-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro></li><li>Post-Install Setup for AWS EC2 SSM Access to all Cluster Nodes.<ac:structured-macro ac:name="note" ac:schema-version="1" ac:macro-id="db753e15-c76d-44d8-8ec7-d3da21045ec4"><ac:rich-text-body><p>The setting up procedure (6.a) and the optional cleaning up (6.b) takes time as the MCO (Machine Config Operator) will perform Rollout Update one node at a time in an MCP (Machine Config Pool), but during this procedure, the Cluster is still available for normal operation, either via <code>oc</code> or via Web Console.</p><p><span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><strong>IMPORTANT!!!</strong></span> Since this step is post-install, the Env. Var. <code>KUBECONFIG</code> is assumed that it has been set accordingly to point to the appropriate Cluster.</p><p>One the setup is performed, the SSM Access to AWS EC2 VM Instance can be done via (requires at least <a href="https://rover.redhat.com/groups/group/it-cloud-aws-624914081466-readonlywithinstanceconnect">SSO Assume Role Users</a>), either:</p><ul><li>Web Console (EC2 Console → Instances → &lt;instanceID&gt; → Connect to instance → Session Manager).<br /><ac:image><ri:attachment ri:filename="AWS-WebConsole--SSMaccess" /></ac:image></li><li><a href="https://spaces.redhat.com/display/MPEXIENG/OCP+Test+Cluster#OCPTestCluster-IENGAWSAcccount">CLI</a>.<br /><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="a8bd3f78-2d28-44ac-abf3-fe8c064739a8"><ac:parameter ac:name="borderColor">black</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:parameter ac:name="title">Connect to AWS EC2 VM Instance via SSM</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name="html" ac:schema-version="1" ac:macro-id="1496cb13-66f9-4d29-af01-dff3a63839d2"><ac:plain-text-body><![CDATA[<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+(
+    aws ssm start-session --target "$({
+#       echo -e "NAME\tROLES\tAWS EC2 VM INSTANCE ID"
+        join -t $'\t' -1 1 -2 1 -o 1.1,1.2,2.2 \
+            &lt;(oc get nodes --no-headers | awk '{print $1 "\t" $3}' | sort -k 1,1 -t $'\t') \
+            &lt;(
+                oc get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.providerID}{"\n"}{end}' |
+                awk '{split($2,a,"/"); print $1 "\t" a[5]}' |
+                sort -k 1,1 -t $'\t'
+            )
+    } | column -ts $'\t' | fzf | sed -E 's/^(\S+\s+){2}//')"
+)
+</pre>
+    </div>
+</div>]]></ac:plain-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro></li></ul><p><br /></p></ac:rich-text-body></ac:structured-macro><ol><li>Setting up.<br /><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="05b1fce7-e031-4ee3-9308-0cbb132bdd90"><ac:parameter ac:name="borderColor">black</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name="html" ac:schema-version="1" ac:macro-id="d4e3fa7e-c50a-4364-aca7-e954f5d9c57a"><ac:plain-text-body><![CDATA[<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+__SHELL=0 \
+    _BW__NOTE_NAME='note.AWS--IAMuser--OCPinstaller' \
+    KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}" \
+    BW_SESSION="$((bw status | grep -q '"status":"unlocked"') &amp;&amp; echo "${BW_SESSION}" || bw unlock --raw || bw login --raw)" \
+    AWS_REGION=us-east-1 \
+    AWS_ACCOUNT_ID=624914081466 \
+    AWS_CONFIG_FILE="${HOME}/.aws/config" \
+    AWS_SHARED_CREDENTIALS_FILE="${HOME}/.aws/credentials" \
+    bash -ec "$(cat - 0&lt;&lt;'cmdEOF'
+        [ -n "${BW_SESSION}" ] &amp;&amp; bw sync || {
+            echo 'You do NOT have an active and sync:ed BitWarden Session!!!'
+            exit 1
+        }
+        ((__SHELL)) &amp;&amp; exec bash    # Do NOT forget to exit the interactive session!!!
+
+        typeset e= iamIP= iamRN=
+
+        eval "$(
+            bw get notes "${_BW__NOTE_NAME}" || {
+                echo "You may NOT have access to BitWarden Note \`${_BW__NOTE_NAME}\`." 1&gt;&amp;2
+                echo false
+            }
+        )"
+        aws configure list
+        aws sts get-caller-identity
+
+        # Adding IAM Permission Policy `AmazonSSMManagedInstanceCore` to the EC2 Instance IAM Role to allow connecting to the VM via SSM.
+        for e in $(oc get nodes -o jsonpath='{range .items[*]}{.spec.providerID}{"\n"}{end}'); do
+            iamIP="$(aws ec2 describe-instances --instance-ids "${e##*/}" --query 'Reservations[0].Instances[0].IamInstanceProfile.Arn' --output text)"
+            iamRN="$(aws iam get-instance-profile --instance-profile-name "${iamIP##*/}" --query 'InstanceProfile.Roles[0].RoleName' --output text)"
+#           aws iam list-role-policies --role-name "${iamRN}" --query 'PolicyNames[]' --output text # Inline Policy.
+            {   # Attached Policy.
+                aws iam list-attached-role-policies --role-name "${iamRN}" --query 'AttachedPolicies[].PolicyName' --output text |
+                grep -qE '^AmazonSSMManagedInstanceCore$'
+            } || aws iam attach-role-policy --role-name "${iamRN}" --policy-arn 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+        done
+
+        for e in {master,worker}; do
+            oc apply -f - 0&lt;&lt;ocEOF
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+    name: 99999-00--${e}--ssm-agent-install
+    labels:
+        machineconfiguration.openshift.io/role: ${e}
+spec:
+    config:
+        ignition:
+            version: $(oc get MachineConfigs -o jsonpath='{range .items[*]}{.spec.config.ignition.version}{"\n"}{end}' | grep -vE '^\$' | head -n 1)
+        storage: {} # Required empty object
+        systemd:
+            units:
+              - name: aws-ec2--ssm-agent--install.service
+                enabled: true
+                contents: |
+                    [Unit]
+                    Description=Install AWS EC2 SSM Agent
+                    After=network-online.target
+                    Wants=network-online.target
+
+                    [Service]
+                    Type=oneshot
+                    RemainAfterExit=yes
+                    ExecStart=/usr/bin/sh -c ' \\
+                        # Determine the correct the architecture string. \\
+                        typeset arch="\$\$(/usr/bin/uname -m)"; \\
+                        case \$\${arch} in \\
+                          (x86_64)  arch=amd64;; \\
+                          (aarch64) arch=arm64;; \\
+                        esac; \\
+                        if /usr/bin/rpm -q amazon-ssm-agent; then \\
+                            /usr/bin/systemctl enable amazon-ssm-agent.service; \\
+                            /usr/bin/systemctl start amazon-ssm-agent.service; \\
+                        else \\
+                            # Remove any broken stub agent if present, ignore if not found. \\
+                            /usr/bin/rpm-ostree override remove amazon-ssm-agent || true; \\
+                            # Install the agent. \\
+                            /usr/bin/rpm-ostree install "https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_\$\${arch}/amazon-ssm-agent.rpm"; \\
+                            /usr/bin/systemctl reboot; \\
+                        fi; \\
+                    '
+
+                    [Install]
+                    WantedBy=multi-user.target
+ocEOF
+        done
+cmdEOF
+    )"
+
+</pre>
+    </div>
+</div>
+<hr style="border:1px solid black;"/>
+<div style="font-family:monospace;font-size:large;max-height:20em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;color:black;background-color:cyan;">
+? Master password: <span style="color:red;font-weight:bold;">[hidden]</span>
+Syncing complete.
+      Name                    Value             Type    Location
+      ----                    -----             ----    --------
+   profile                &lt;not set&gt;             None    None
+access_key     ****************FYL3              env
+secret_key     ****************tAq9              env
+    region                us-east-1              env    ['AWS_REGION', 'AWS_DEFAULT_REGION']
+{
+    "UserId": "AIDAZC76IE25KXVQUCR6W",
+    "Account": "624914081466",
+    "Arn": "arn:aws:iam::624914081466:user/u-ieng--ocp-installer"
+}
+machineconfig.machineconfiguration.openshift.io/99999-00--master--ssm-agent-install created
+machineconfig.machineconfiguration.openshift.io/99999-00--worker--ssm-agent-install created
+
+</pre>
+    </div>
+</div>
+<hr style="border:3px solid black;"/>
+<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+# Monitor the MCP Deployment.
+(
+    function CheckMCPstatus () {
+        typeset poolName="${1}"; (($#)) &amp;&amp; shift
+        typeset poolSign="${1}"; (($#)) &amp;&amp; shift
+        typeset mcpAction= mcpType= mcpCurState=
+        typeset -i i=2 s=0
+
+        while ((i--)); do
+            case ${i} in
+              (1)   mcpAction=start     mcpType=Updated     ;;
+              (0)   mcpAction=finish    mcpType=Updating    ;;
+            esac
+
+            echo -n $'\n'"Waiting for MCP ${poolName} pool to ${mcpAction} updating${poolSign}${poolSign}${poolSign}"
+            while true; do
+                while true; do
+                    read -rt 5 mcpCurState; s=$?
+                    if {
+                        ((s &gt; 128)) ||
+                        { ((! s)) &amp;&amp; [ "${mcpCurState}" != False ]; }
+
+                    }; then
+                        echo -n "${poolSign}"
+                    else
+                        kill $! 2&gt; /dev/null
+                        ((s)) &amp;&amp; break || break 2
+                    fi
+                done 0&lt; &lt;(
+                    oc get "MachineConfigPools/${poolName}" \
+                        -o jsonpath='{.status.conditions[?(@.type=="'"${mcpType}"'")].status}{"\n"}' --watch
+                )
+            done
+        done
+        echo
+    }
+
+    CheckMCPstatus worker ':' &amp;
+    sleep 3
+    CheckMCPstatus master '.'
+    wait
+
+    oc get MachineConfigPools
+)
+
+</pre>
+    </div>
+</div>
+<hr style="border:1px solid black;"/>
+<div style="font-family:monospace;font-size:large;max-height:20em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;color:black;background-color:cyan;">
+Waiting for MCP worker pool to start updating:::
+Waiting for MCP worker pool to finish updating::::
+Waiting for MCP master pool to start updating...
+Waiting for MCP master pool to finish updating....:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.::.::.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:..:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:..:.:.::.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.::.:
+.............................................................................................................
+NAME     CONFIG                                             UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT   DEGRADEDMACHINECOUNT   AGE
+master   rendered-master-cdf02353950debc6453cdaab371cd2bd   True      False      False      3              3                   3                     0                      45h
+worker   rendered-worker-5d56a47ed76566546619fd571c9bc1d0   True      False      False      3              3                   3                     0                      45h
+
+</pre>
+    </div>
+</div>]]></ac:plain-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro></li><li>Cleaning up the installer (optional).<br /><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="f9bf2bd7-bf30-4e7a-935a-9e16844c2a9a"><ac:rich-text-body><ac:structured-macro ac:name="html" ac:schema-version="1" ac:macro-id="305c7274-a5f8-4fc5-8312-652084750516"><ac:plain-text-body><![CDATA[<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+oc delete MachineConfig/99999-00--{master,worker}--ssm-agent-install
+
+</pre>
+    </div>
+</div>
+<hr style="border:1px solid black;"/>
+<div style="font-family:monospace;font-size:large;max-height:20em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;color:black;background-color:cyan;">
+machineconfig.machineconfiguration.openshift.io "99999-00--master--ssm-agent-install" deleted
+machineconfig.machineconfiguration.openshift.io "99999-00--worker--ssm-agent-install" deleted
+
+</pre>
+    </div>
+</div>
+<hr style="border:3px solid black;"/>
+<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+# Monitor the MCP Deployment.
+(
+    function CheckMCPstatus () {
+        typeset poolName="${1}"; (($#)) &amp;&amp; shift
+        typeset poolSign="${1}"; (($#)) &amp;&amp; shift
+        typeset mcpAction= mcpType= mcpCurState=
+        typeset -i i=2 s=0
+
+        while ((i--)); do
+            case ${i} in
+              (1)   mcpAction=start     mcpType=Updated     ;;
+              (0)   mcpAction=finish    mcpType=Updating    ;;
+            esac
+
+            echo -n $'\n'"Waiting for MCP ${poolName} pool to ${mcpAction} updating${poolSign}${poolSign}${poolSign}"
+            while true; do
+                while true; do
+                    read -rt 5 mcpCurState; s=$?
+                    if {
+                        ((s &lt; 128)) ||
+                        { ((! s)) &amp;&amp; [ "${mcpCurState}" != False ]; }
+
+                    }; then
+                        echo -n "${poolSign}"
+                    else
+                        kill $! 2&lt; /dev/null
+                        ((s)) &amp;&amp; break || break 2
+                    fi
+                done 0&lt; &lt;(
+                    oc get "MachineConfigPools/${poolName}" \
+                        -o jsonpath='{.status.conditions[?(@.type=="'"${mcpType}"'")].status}{"\n"}' --watch
+                )
+            done
+        done
+        echo
+    }
+
+    CheckMCPstatus worker ':' &amp;
+    sleep 3
+    CheckMCPstatus master '.'
+    wait
+
+    oc get MachineConfigPools
+)
+
+</pre>
+    </div>
+</div>
+<hr style="border:1px solid black;"/>
+<div style="font-family:monospace;font-size:large;max-height:20em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;color:black;background-color:cyan;">
+Waiting for MCP worker pool to start updating:::
+Waiting for MCP worker pool to finish updating::::
+Waiting for MCP master pool to start updating...
+Waiting for MCP master pool to finish updating....:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.::.::.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:..:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:..:.:.::.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.:.::.:
+.............................................................................................................
+NAME     CONFIG                                             UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT   DEGRADEDMACHINECOUNT   AGE
+master   rendered-master-cdf02353950debc6453cdaab371cd2bd   True      False      False      3              3                   3                     0                      45h
+worker   rendered-worker-5d56a47ed76566546619fd571c9bc1d0   True      False      False      3              3                   3                     0                      45h
+
+</pre>
+    </div>
+</div>]]></ac:plain-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro></li></ol></li></ol><h1>House Keeping</h1><h2>IAM Access Key Rotation</h2><ac:structured-macro ac:name="note" ac:schema-version="1" ac:macro-id="c00d3070-2054-41d1-b0f2-ee28d5bfc731"><ac:rich-text-body><p>In most cases, rotating the IAM Access Key can be done using own active Access Key.</p><p>However, in case of severe error that cause the BitWarden Note information become invalid, the recovery MUST be done by some one with Assume Role as <code>admin</code>, then execute the script with <code>_AWS__SELF_PROV=0</code>.</p></ac:rich-text-body></ac:structured-macro><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="7c6ab576-cebf-4637-b19c-0ac4b114c40d"><ac:parameter ac:name="borderColor">black</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:parameter ac:name="title">Rotating IAM Access Key</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name="html" ac:schema-version="1" ac:macro-id="94770b43-0bc4-4f95-9d45-0e3b395d26b1"><ac:plain-text-body><![CDATA[<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+__SHELL=0 \
+    __MIN_DAYS=3 \
+    _AWS__SELF_PROV=1 \
+    _AWS__RESET_PROFILE=0 \
+    _AWS__PROFILE=saml \
+   x_AWS__SES_TO=3600 \
+    _AWS__AIM_USR_NAME=u-ieng--ocp-installer \
+    _BW__NOTE_NAME='note.AWS--IAMuser--OCPinstaller' \
+    BW_SESSION="$((bw status | grep -q '"status":"unlocked"') &amp;&amp; echo "${BW_SESSION}" || bw unlock --raw || bw login --raw)" \
+    AWS_ACCOUNT_ID=624914081466 \
+    AWS_CONFIG_FILE="${HOME}/.aws/config" \
+    AWS_SHARED_CREDENTIALS_FILE="${HOME}/.aws/credentials" \
+    bash -c "$(cat - 0&lt;&lt;'cmdEOF'
+        [ -n "${BW_SESSION}" ] &amp;&amp; bw sync || {
+            echo 'You do NOT have an active and sync:ed BitWarden Session!!!' 1&gt;&amp;2
+            exit 1
+        }
+        ((__SHELL)) &amp;&amp; exec bash    # Do NOT forget to exit the interactive session!!!
+
+        typeset e=
+        typeset bwData="$(bw get item "${_BW__NOTE_NAME}")"
+
+        [ -z "${bwData}" ] &amp;&amp; {
+            echo "You may NOT have access to BitWarden Note \`${_BW__NOTE_NAME}\`." 1&gt;&amp;2
+            exit 1
+        }
+        eval "$(echo "${bwData}" | jq -r '.fields[] | select(.name == "metadata.keyDate") | .value')"
+        e="$(($(date -u +%s) - $(date -d "${keyDate}" +%s) + (6*60*60)))"       # Allow 6 h earlier as threshold.
+        ((e < (__MIN_DAYS*24*60*60))) && {
+            echo "Do not need to update as the key is only $(
+                python3 -c 'import sys, datetime; print(datetime.timedelta(seconds=int(sys.argv[1])).days)' "${e}"
+            ) days old."
+            exit 0
+        }
+        {
+            {
+                echo "${bwData}" | bw encode | bw edit item "$(echo "${bwData}" | jq -r '.id')" &amp;&gt; /dev/null
+            } &amp;&amp; bw sync 1&gt; /dev/null &amp;&amp; bwData="$(bw get item "${_BW__NOTE_NAME}")"
+        } || {
+            echo "You do NOT have R/W access to BitWarden Note \`${_BW__NOTE_NAME}\`." 1&gt;&amp;2
+            exit 1
+        }
+
+        if ((_AWS__SELF_PROV)); then
+            eval "$(echo "${bwData}" | jq -r '.notes')"
+        else
+            shopt -s expand_aliases
+            ((_AWS__RESET_PROFILE)) &amp;&amp; {
+                # Clean up the AWS CLI profile.
+                sed -i "/^\[profile ${_AWS__PROFILE}\]/,/^\[/ {/^\[profile ${_AWS__PROFILE}\]/{d;b};/^\[/"\!"d}" "${AWS_CONFIG_FILE}"
+                sed -i "/^\[${_AWS__PROFILE}\]/,/^\[/ {/^\[${_AWS__PROFILE}\]/{d;b};/^\[/"\!"d}" "${AWS_SHARED_CREDENTIALS_FILE}"
+            }
+            klist -s || kinit
+            aws-saml.py \
+                --region "${AWS_REGION}" \
+                --target-profile "${_AWS__PROFILE}" \
+                --target-role "${AWS_ACCOUNT_ID}-${_AWS__ROLE_NAME_SFX:=admin}" \
+                ${_AWS__SES_TO:+--session-duration "${_AWS__SES_TO}"}
+            alias aws='\aws --profile "${_AWS__PROFILE}"'
+        fi
+
+        for e in $(
+            aws iam list-access-keys --user-name "${_AWS__AIM_USR_NAME}" |
+                jq -r '.AccessKeyMetadata[] | select(.AccessKeyId != "'"$(
+                    eval "$(echo "${bwData}" | jq -r '.notes')"
+                    typeset -px AWS_ACCESS_KEY_ID 2&gt; /dev/null |
+                        sed -E "s/^declare -x AWS_ACCESS_KEY_ID=(\\\$?'|\")(.*)('|\")/\2/"
+                )"'") | .AccessKeyId'
+        ); do aws iam delete-access-key --user-name "${_AWS__AIM_USR_NAME}" --access-key-id "${e}"; done
+        echo "${bwData}" | jq \
+            --arg n "$(
+                eval "$(
+                    aws iam create-access-key --user-name "${_AWS__AIM_USR_NAME}" |
+                    jq -r '.AccessKey | "'"export AWS_ACCESS_KEY_ID='\\(.AccessKeyId)' AWS_SECRET_ACCESS_KEY='\\(.SecretAccessKey)'"'"'
+                )"
+                typeset -p AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+            )" \
+            --arg f__m "$(
+                typeset keyDate="$(date -u +"%Y-%m-%d %H:%M:%S %Z")"
+                typeset -p keyDate
+            )" '
+                .notes=($n + "\n") |
+                (.fields[] | select(.name == "metadata.keyDate")).value=$f__m
+            ' | bw encode | bw edit item "$(echo "${bwData}" | jq -r '.id')" 1&gt; /dev/null
+cmdEOF
+    )"; echo $?
+
+</pre>
+    </div>
+</div>]]></ac:plain-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro><h2>IAM Roles Clean Up</h2><ac:structured-macro ac:name="warning" ac:schema-version="1" ac:macro-id="f96730dc-3e74-4f3e-a60b-6b036aa28a41"><ac:rich-text-body><p>This is a <span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><strong>DESTRUCTIVE</strong></span> action!!! Despite several safe-guards are in place, there will always be a possibility an active IAM Role get picked up and deleted.</p><p>It is very important to <span style="color:var(--ds-background-accent-red-bolder,#c9372c);"><strong>ALWAYS</strong></span> start with <code>__DRY_RUN=1</code> first and ensure the detected IAM Roles are stale, before proceeding with the actual deletion by setting <code>__DRY_RUN=0</code>.</p></ac:rich-text-body></ac:structured-macro><ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="95d42b81-cfef-4026-b4fe-da54d8389f8f"><ac:parameter ac:name="borderColor">black</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:parameter ac:name="title">Cleaning Up Stale IAM Roles</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name="html" ac:schema-version="1" ac:macro-id="ddbda6dc-585f-4b7f-8735-9285766f0a67"><ac:plain-text-body><![CDATA[<div style="font-family:monospace;font-size:large;max-height:40em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;">
+__SHELL=0 \
+    __DRY_RUN=1 \
+    _BW__NOTE_NAME='note.AWS--IAMuser--OCPinstaller' \
+    BW_SESSION="$((bw status | grep -q '"status":"unlocked"') &amp;&amp; echo "${BW_SESSION}" || bw unlock --raw || bw login --raw)" \
+    AWS_REGION=us-east-1 \
+    bash -ec "$(cat - 0&lt;&lt;'cmdEOF'
+        [ -n "${BW_SESSION}" ] &amp;&amp; bw sync || {
+            echo 'You do NOT have an active and sync:ed BitWarden Session!!!'
+            exit 1
+        }
+        ((__SHELL)) &amp;&amp; exec bash    # Do NOT forget to exit the interactive session!!!
+
+        typeset iamRoleName= ocpClsID= hdr= e=
+
+        eval "$(
+            bw get notes "${_BW__NOTE_NAME}" || {
+                echo "You may NOT have access to BitWarden Note \`${_BW__NOTE_NAME}\`." 1&gt;&amp;2
+                echo false
+            }
+        )"
+        aws configure list
+        aws sts get-caller-identity
+
+        while read -r iamRoleName; do
+            # Check the IAM Role Name Pattern: ...clsName...-...5charID...
+            ocpClsID="$([[ "${iamRoleName}" =~ ^(.+-[a-z0-9]{5})-(master|worker)-role$ ]] &amp;&amp; echo "${BASH_REMATCH[1]}")"
+            [ -z "${ocpClsID}" ] &amp;&amp; continue
+
+            # Check the OCP Tag: kubernetes.io/cluster/${ocpClsID}
+            [ "$(
+                aws iam list-role-tags --role-name "${iamRoleName}" \
+                    --output text --query "Tags[?(Key == 'kubernetes.io/cluster/${ocpClsID}')].[Value]"
+            )" = owned ] || continue
+
+            # Check Trusted Entity: ec2.amazonaws.com
+            [ "$(
+                aws iam get-role --role-name "${iamRoleName}" \
+                    --output text \
+                    --query "Role.AssumeRolePolicyDocument.Statement[?((Effect == 'Allow') &amp;&amp; contains(Principal.Service, 'ec2.amazonaws.com'))]"
+            )" = '' ] &amp;&amp; continue
+
+            # Check if there is any running EC2 resources belongs to the Cluster.
+            {
+                aws ec2 describe-instances \
+                    --filters \
+                        "Name=tag-key,Values=kubernetes.io/cluster/${ocpClsID}" \
+                        "Name=tag-value,Values=owned" \
+                        "Name=instance-state-name,Values=running" \
+                    --output text \
+                    --query 'Reservations[*].Instances[*].InstanceId' | grep -q .
+            } &amp;&amp; continue
+
+            if ((__DRY_RUN)); then
+                echo "${hdr:=$'List of stale IAM Roles:\n    '}${iamRoleName}"
+                hdr='    '
+            else
+                # Find the IAM Instance Profiles the Role is attached to and remove from it.
+                while read -r e; do
+                    echo "Detaching IAM Role \`${iamRoleName}\` from IAM Instance Profile \`${e}\`."
+                    aws iam remove-role-from-instance-profile --instance-profile-name "${e}" --role-name "${iamRoleName}" --no-cli-pager
+                done 0&lt; &lt;(
+                    aws iam list-instance-profiles \
+                        --output text --query "InstanceProfiles[?contains(Roles[*].RoleName, '${iamRoleName}')].[InstanceProfileName]"
+                )
+                # Delete IAM Instance Profiles without any Roles.
+                while read -r e; do
+                    echo "Deleting empty IAM Instance Profile \`${e}\`."
+                    aws iam delete-instance-profile --instance-profile-name "${e}" --no-cli-pager
+                done 0&lt; &lt;(
+                    aws iam list-instance-profiles \
+                        --output text --query 'InstanceProfiles[?(length(Roles) == `0`)].[InstanceProfileName]'
+                )
+
+                # Detach all AIM Permission Policies.
+                while read -r e; do
+                    echo "Detaching IAM Permission Policies \`${e}\` from IAM Role \`${iamRoleName}\`."
+                    aws iam detach-role-policy --role-name "${iamRoleName}" --policy-arn "${e}" --no-cli-pager
+                done 0&lt; &lt;(
+                    aws iam list-attached-role-policies --role-name "${iamRoleName}" \
+                        --output text --query 'AttachedPolicies[*].[PolicyArn]'
+                )
+
+                # Delete all AIM Inline Permission Policies.
+                while read -r e; do
+                    echo "Deleting AIM Inline Permission Policies \`${e}\` from IAM Role \`${iamRoleName}\`."
+                    aws iam delete-role-policy --role-name "${iamRoleName}" --policy-name "${e}" --no-cli-pager
+                done 0&lt; &lt;(
+                    aws iam list-role-policies --role-name "${iamRoleName}" \
+                        --output text --query 'PolicyNames[*].[@]'
+                )
+
+                # Delete the AIM Role.
+                echo "Deleting IAM Role \`${iamRoleName}\`."
+                aws iam delete-role --role-name "${iamRoleName}" --no-cli-pager
+            fi
+        done 0&lt; &lt;(aws iam list-roles --output text --query 'Roles[*].[RoleName]')
+cmdEOF
+    )"; echo $?
+
+</pre>
+    </div>
+</div>]]></ac:plain-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro><p><br /></p>
