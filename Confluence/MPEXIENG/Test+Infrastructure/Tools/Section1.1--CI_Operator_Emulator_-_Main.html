@@ -1,0 +1,68 @@
+---
+---
+{%- include jekyll/url.var -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CI Operator Emulator - Main</title>
+    <base href="{{site.url}}{{site.baseurl}}{{url_parentPath}}/" />
+    <style>
+        :root {color-scheme: light dark;}
+        body {background-color: Canvas; color: CanvasText;}
+    </style>
+    <script type="module" src="../../../../Scripts/js/global.js"></script>
+    <script type="module" src="../../../../Scripts/js/html-include.js"></script>
+</head>
+<body>
+<script type="module" src="{{site.url}}{{site.baseurl}}/Scripts/js/global.js"></script>
+<script type="module" src="{{site.url}}{{site.baseurl}}/Scripts/js/html-include.js"></script>
+<div
+    data-html-include="{{site.url}}{{site.baseurl}}/Scripts/html/OCP/CI--CI-Operator--01-Operation/Tips-a-Trick/CI-Operator_Emulator.html"
+></div>
+<hr style="border:3px solid CanvasText;"/>
+<div style="font-family:monospace;font-size:large;max-height:20em;line-height:normal;overflow:auto;white-space:nowrap;">
+    <div style="float:left;min-width:100%;" tabindex="0">
+<pre style="font-size:medium;margin:0;color:black;background-color:cyan;">
+================================================================================
+The CI Operator Job `pull-ci-RedHatQE-interop-testing-master-imgRetr-img-retr` is ready at:
+    '/ws/local/repo/openshift/release/pr-000/src/ci-operator/config/RedHatQE/interop-testing/RedHatQE-interop-testing-master__imgRetr.yaml'
+Execute:
+    make -C '/ws/local/repo/openshift/release/pr-000/src' update; echo $?
+Commit the new and modified files, then push that into a (dummy) WIP/Draft PR.
+Rehearse the Job:
+    /pj-rehearse pull-ci-RedHatQE-interop-testing-master-imgRetr-img-retr
+IMPORTANT!!!
+    This new file is NOT meant to be merged!!! So please do NOT forget to
+    remove that CI Configuration file before final merge!!!
+Once the Job is at least reaching the Test Step execution, you can start
+pulling the Container Image:
+    ci--pull--ctr-img
+    NOTE:
+        Time limit: 30 min. after Job completion. Once NameSpace is deleted,
+        the image cannot be pulled and the Job must be rehearsed again.
+Once the Container Image is downloaded successfully, the Test Container can be
+started and the Step Script will be available under `/ws/step/` directory
+inside the Container:
+    ci--start--ctr
+    NOTE:
+        User may add additional settings, to be sourced at the start of
+        Container Interactive Session, in:
+            '/ws/local/repo/openshift/release/pr-000/cfg/env--ctr'
+<span style="color:red;font-weight:bold;">You can print this message again by executing:</span>
+    <span style="color:red;font-weight:bold;">ci--to-do</span>
+================================================================================
+
+Do NOT forget to exit this interactive session, after you are done!!!
+</pre>
+<pre style="font-size:medium;margin:0;">
+[user@host /ws/local/repo/openshift/release/pr-000]$ [CI Operator Emulator] ls
+</pre>
+<pre style="font-size:medium;margin:0;color:black;background-color:cyan;">
+artifacts/  fs-root/  src/
+</pre>
+    </div>
+</div>
+</body>
+</html>
